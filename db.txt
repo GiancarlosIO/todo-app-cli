@@ -1,6 +1,3 @@
-my-new-todo	false
-new-1	false
-hey-this-is-random	false
-new-3	false
-new-2	false
-hey-this-is-random-2 false
+todo-2	false
+todo-3	false
+todo-1	false

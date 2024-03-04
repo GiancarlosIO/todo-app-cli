@@ -11,11 +11,25 @@ use std::{
     io::{self, Stdout, Write},
 };
 
+use std::time::{Duration, Instant};
+
+const DEBOUNCE_INTERVAL_MS: u64 = 50;
+
 fn main() {
+    let mut last_event_time = Instant::now();
+
     // let action = std::env::args().nth(1).expect("Please specify an action");
     // let item = std::env::args().nth(2).expect("Please specify an item");
-
-    let mut todo = Todo::new().expect("> Error to initialize the DB.");
+    // let mut todo = Todo::new().expect("> Error to initialize the DB.");
+    let mut todo = Todo {
+        map: HashMap::new(),
+    };
+    todo.map.insert("todo-1".to_string(), false);
+    todo.map.insert("todo-2".to_string(), false);
+    todo.map.insert("todo-3".to_string(), false);
+    todo.map.insert("todo-3".to_string(), false);
+    todo.map.insert("todo-4".to_string(), false);
+    todo.map.insert("todo-5".to_string(), false);
 
     // setup terminal
     let mut stdout = io::stdout();
@@ -38,6 +52,7 @@ fn main() {
     let mut selected_index = 0;
 
     loop {
+        eprintln!("Current index: {}", selected_index);
         // draw ui
         match draw_ui(&mut stdout, &todo.map, selected_index) {
             Err(why) => eprintln!("> Error to draw ui cli: {}", why),
@@ -47,26 +62,38 @@ fn main() {
         // handle user input
         if let Ok(event) = read() {
             match event {
-                Event::Key(key_event) => match key_event.code {
-                    KeyCode::Char(' ') => {
-                        todo.toggle_by_index(selected_index);
-                        match todo.save() {
-                            Ok(_) => {}
-                            Err(why) => eprintln!("> Error to save todo: {}", why),
+                Event::Key(key_event) => {
+                    if debounce_elapsed(&mut last_event_time) {
+                        match key_event.code {
+                            KeyCode::Char(' ') => {
+                                todo.toggle_by_index(selected_index);
+                                match todo.save() {
+                                    Ok(_) => {}
+                                    Err(why) => eprintln!("> Error to save todo: {}", why),
+                                }
+                            }
+                            KeyCode::Esc | KeyCode::Char('q') => {
+                                break;
+                            }
+                            KeyCode::Up | KeyCode::Char('k') => {
+                                selected_index =
+                                    move_cursor(&todo.map, selected_index, Direction::Up);
+                            }
+                            KeyCode::Down | KeyCode::Char('j') => {
+                                selected_index =
+                                    move_cursor(&todo.map, selected_index, Direction::Down);
+                            }
+                            _ => {}
                         }
                     }
-                    KeyCode::Esc | KeyCode::Char('q') => {
-                        break;
-                    }
-                    _ => {}
-                },
+                }
                 _ => {}
             }
         } else {
             eprintln!("> Error to read the user input");
         }
 
-        println!("Enter action (add, complete, delete) and item (or 'quit' to exit):");
+        // println!("Enter action (add, complete, delete) and item (or 'quit' to exit):");
 
         // let mut input = String::new();
         // io::stdin()
@@ -142,6 +169,17 @@ fn main() {
     //     }
     // }
 }
+// Function to check if debounce interval has elapsed since the last event
+fn debounce_elapsed(last_event_time: &mut Instant) -> bool {
+    let now = Instant::now();
+    let elapsed = now.duration_since(*last_event_time);
+    if elapsed >= Duration::from_millis(DEBOUNCE_INTERVAL_MS) {
+        *last_event_time = now;
+        true // Debounce interval has elapsed
+    } else {
+        false // Debounce interval has not elapsed
+    }
+}
 
 struct Todo {
     map: HashMap<String, bool>,
@@ -199,8 +237,8 @@ impl Todo {
         //     Some(v) => Some(*v = !*v),
         //     None => None,
         // }
-        println!("Toggle todo {}", index);
         if let Some(key) = self.map.keys().nth(index) {
+            println!("Toggle todo {} - {}", index, key);
             if let Some(value) = self.map.get_mut(&key.to_owned()) {
                 *value = !*value;
                 return Some(());
@@ -252,8 +290,8 @@ fn draw_ui(
     let mut i = 0;
 
     for (key, value) in todos {
-        let checkbox = if i == selected_index { "(*)" } else { "( )" };
-        let color = if *value {
+        let checkbox = if *value { "(*)" } else { "( )" };
+        let color = if i == selected_index {
             crossterm::style::Color::Green
         } else {
             crossterm::style::Color::White
