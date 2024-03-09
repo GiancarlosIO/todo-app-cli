@@ -1,15 +1,12 @@
 use crossterm::{
     cursor,
-    event::{self, read, Event, KeyCode, KeyEvent},
+    event::{read, Event, KeyCode, KeyEvent, KeyModifiers},
     execute,
-    terminal::{self, Clear, ClearType},
+    terminal::{self, ClearType},
 };
+use std::io::{self, Stdout, Write};
 use std::str::FromStr;
 use std::{collections::HashMap, io::Read};
-use std::{
-    hash::Hash,
-    io::{self, Stdout, Write},
-};
 
 use std::time::{Duration, Instant};
 
@@ -52,7 +49,6 @@ fn main() {
     let mut selected_index = 0;
 
     loop {
-        eprintln!("Current index: {}", selected_index);
         // draw ui
         match draw_ui(&mut stdout, &todo.map, selected_index) {
             Err(why) => eprintln!("> Error to draw ui cli: {}", why),
@@ -62,6 +58,27 @@ fn main() {
         // handle user input
         if let Ok(event) = read() {
             match event {
+                Event::Key(KeyEvent {
+                    modifiers: KeyModifiers::CONTROL,
+                    code,
+                    // in rust `..` is a syntax known as a struct or tuple "wildcard" or "placeholder"
+                    // It's used to indicate that you want to ignore certain fields when pattern matching against a struct or tuple
+                    ..
+                }) => match code {
+                    KeyCode::Char('c') => {
+                        println!("> Exiting application...");
+                        // show the cursor again
+                        match execute!(stdout, cursor::Show) {
+                            Err(why) => eprintln!("> An error has occurred: {}", why),
+                            Ok(_) => {}
+                        };
+                        std::process::exit(0);
+                        // Why we don't need a semicolon here?
+                        // Rust requires semicolons to determinate statements, but blocks of code (expressions)
+                        // don't require semicolons at the end. Statements outside of blocks still require semicolons
+                    }
+                    _ => {}
+                },
                 Event::Key(key_event) => {
                     if debounce_elapsed(&mut last_event_time) {
                         match key_event.code {
