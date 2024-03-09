@@ -41,7 +41,6 @@ fn main() {
             }
             _ => {}
         }
-        println!("cursor: {}, limit: {}", cursor_line_index, cursor_limit);
         // Draw UI
         match app.state {
             State::Initial => {
