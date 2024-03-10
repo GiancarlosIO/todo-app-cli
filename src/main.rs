@@ -7,12 +7,13 @@ use crossterm::{
 };
 use std::{
     fmt::Display,
-    io::{stdout, Stdout},
+    io::{self, stdout, Stdout},
     time::{Duration, Instant, SystemTime},
 };
 
 fn main() {
     let mut last_event_time = Instant::now();
+    let mut last_event_time_input = Instant::now();
     let mut app = App::init();
 
     app.add_todo("My new todo".to_string());
@@ -89,7 +90,64 @@ What do you want to do?\
                     false,
                 )
             }
-            State::AddTodo => {}
+            State::AddTodo => {
+                clear_and_print(
+                    &mut stdout,
+                    "> Enter the new todo title:".to_string(),
+                    false,
+                );
+                match execute!(stdout, cursor::Show) {
+                    Err(why) => {
+                        eprintln!("> An error ocurred when trying to show the cursor: {}", why)
+                    }
+                    Ok(_) => {}
+                }
+                let mut new_todo_title = String::new();
+                while let Event::Key(KeyEvent { code, .. }) =
+                    event::read().expect("Error to read the event")
+                {
+                    if debounce_elapsed(&mut last_event_time_input) {
+                        match code {
+                            crossterm::event::KeyCode::Enter => {
+                                if new_todo_title.trim().len() > 0 {
+                                    println!(
+                                        "enteeeer {:?} - {}",
+                                        new_todo_title,
+                                        new_todo_title.trim().len()
+                                    );
+                                    app.add_todo(new_todo_title);
+                                    // reset app
+                                    cursor_line_index = 0;
+                                    app.state = State::Initial;
+                                } else {
+                                    let text = format!(
+                                        "> Enter the new todo title: {}\n\n\nThe title must not be empty.",
+                                        new_todo_title.clone()
+                                    );
+                                    clear_and_print(&mut stdout, text, false);
+                                }
+                                break;
+                            }
+                            crossterm::event::KeyCode::Delete
+                            | crossterm::event::KeyCode::Backspace => {
+                                // if new_todo_title.len() > 0 {
+                                new_todo_title.pop();
+                                // }
+                            }
+                            crossterm::event::KeyCode::Char(c) => {
+                                new_todo_title.push(c);
+                                let text = format!(
+                                    "> Enter the new todo title: {}",
+                                    new_todo_title.clone()
+                                );
+                                clear_and_print(&mut stdout, text, false);
+                            }
+
+                            _ => {}
+                        }
+                    }
+                }
+            }
         }
 
         // event key handlers
